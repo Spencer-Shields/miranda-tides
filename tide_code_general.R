@@ -10,26 +10,22 @@ names(d_reshaped) = c('Metres', 'Date', 'Time')
 tide_types = c('Low-low', 'High-high', 'High-low', 'Low-high') #different types of tides and the order in which they occur
 
 #determine what type of tide the first one is
-first_four = d_reshaped$Metres[1:4]
-first_four_ranks = rank(first_four)
-rank_of_first = first_four_ranks[1]
+first_type = ifelse(d_reshaped$Metres[1] < d_reshaped$Metres[2], 'Low', 'High')
 
-type_of_first = case_match(rank_of_first,
-                           1 ~ 'Low-low',
-                           2 ~ 'High-low',
-                           3 ~ 'Low-high',
-                           4 ~ 'High-high')
+if(first_type == 'Low'){
+  d_reshaped$Tide_type = rep(c('Low', 'High'), length.out = nrow(d_reshaped))
+} else {
+  d_reshaped$Tide_type = rep(c('High', 'Low'), length.out = nrow(d_reshaped))
+}
 
-#Get type for every tide in dataframe
-start_index <- which(tide_types == type_of_first) #index at start of tide type
-tide_types_alt <- tide_types[c(start_index:length(tide_types), 1:(start_index - 1))] #reset sequence of tide types based on type of first
-tide_types_alt = tide_types_alt[1:4] #drop extra entry from the end
+d_reshaped$id = rep(c(1,1,2,2), length.out = nrow(d_reshaped))
 
+d_reshaped_wide = d_reshaped %>%
+  mutate(Tide_id = paste0(Tide_type,'_',id)) %>%
+  select(Date, Metres, Time, Tide_id) %>%
+  pivot_wider(names_from = Tide_id, values_from = c(Metres,Time)) %>%
+  mutate(Daily_low_height = min(Metres_Low_1, Metres_Low_2, na.rm=T)) %>%
+  mutate(Daily_low_time = ifelse(Metres_Low_1 == Daily_low_height, Time_Low_1, Time_Low_2))
 
-d_reshaped$Tide_type = rep(tide_types_alt, length.out = nrow(d_reshaped))
-
-d_summ = d_reshaped %>%
-  group_by(Date) %>%
-  summarize(N_tides = n(),
-            Low_low = min(Metres),
-            Other_low = nth(Metres, 2, order_by = Metres))
+#final dataframe
+print(d_reshaped_wide)
